@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="agregimmo" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <title>agregimmo</title>
+  <meta name="description" content="Agrégateur d'annonces immobilières : biens rares, opportunités d'investissement." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231f6f5c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 11l8-6.5 8 6.5'/%3E%3Cpath d='M6 9.5V20h12V9.5'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./" aria-label="agregimmo">
+      <span class="mark"></span><span>agregimmo</span>
+    </a>
+    <label class="search">
+      <span data-icon="search"></span>
+      <input id="q" type="search" placeholder="Rechercher : loft, terrasse, Rezé…" autocomplete="off" />
+    </label>
+    <nav class="actions">
+      <button class="ib" id="btn-refresh" title="Actualiser les sources" data-icon="refresh"></button>
+      <button class="ib" id="btn-add" title="Ajouter une annonce" data-icon="plus"></button>
+      <button class="ib" id="btn-alerts" title="Alertes" data-icon="bell"><span class="badge" hidden></span></button>
+      <button class="ib" id="btn-theme" title="Thème" data-icon="moon"></button>
+      <button class="ib" id="btn-settings" title="Paramètres" data-icon="settings"></button>
+    </nav>
+  </header>
+
+  <div class="bar">
+    <div class="seg" id="tabs" role="tablist">
+      <button data-tab="all" class="on">Tous</button>
+      <button data-tab="opps">Opportunités</button>
+      <button data-tab="new">Nouveaux</button>
+      <button data-tab="favs">Favoris</button>
+    </div>
+    <div class="bar-right">
+      <button class="chip-btn" id="btn-filters"><span data-icon="filter"></span>Filtres<span class="count" hidden></span></button>
+      <select id="sort" aria-label="Trier">
+        <option value="score">Score d'opportunité</option>
+        <option value="recent">Plus récents</option>
+        <option value="oldest">En ligne depuis longtemps</option>
+        <option value="price-asc">Prix croissant</option>
+        <option value="price-desc">Prix décroissant</option>
+        <option value="ppm2">Prix au m² croissant</option>
+        <option value="discount">Plus sous le marché</option>
+        <option value="drop">Plus forte baisse</option>
+        <option value="yield">Meilleur rendement</option>
+        <option value="surface">Surface décroissante</option>
+        <option value="distance">Distance au centre</option>
+      </select>
+      <div class="seg small" id="views">
+        <button data-view="grid" class="on" title="Grille" data-icon="grid"></button>
+        <button data-view="list" title="Liste" data-icon="list"></button>
+        <button data-view="map" title="Carte" data-icon="map"></button>
+      </div>
+    </div>
+  </div>
+
+  <main class="layout">
+    <aside class="filters" id="filters" aria-label="Filtres"></aside>
+    <section class="content">
+      <div class="summary" id="summary"></div>
+      <div id="results"></div>
+      <div id="map" hidden></div>
+    </section>
+  </main>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <dialog id="modal"><div class="modal-inner" id="modal-body"></div></dialog>
+  <div class="toasts" id="toasts"></div>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
