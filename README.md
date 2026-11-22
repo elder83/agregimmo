@@ -4,7 +4,22 @@ Agrégateur d'annonces immobilières pour repérer **les biens rares et les oppo
 
 ![interface épurée : grille d'annonces, score d'opportunité, filtres](docs/apercu.png)
 
-## Démarrer
+## Sur téléphone (sans ordinateur)
+
+L'application est publiée sur **https://elder83.github.io/agregimmo/** et s'installe comme une app :
+
+- **iPhone (Safari)** : bouton Partager → « Sur l'écran d'accueil ».
+- **Android (Chrome)** : menu ⋮ → « Installer l'application ».
+
+Dans ce mode, tout tourne dans le téléphone : annonces, favoris et alertes sont stockés sur l'appareil, l'app s'ouvre même hors connexion et s'actualise à chaque ouverture. Pensez à *Paramètres → Données → Exporter* de temps en temps pour sauvegarder vos favoris.
+
+Limite : un site ne se laisse lire depuis le navigateur que s'il l'autorise (CORS). Les flux RSS et la lecture automatique d'un lien échouent donc souvent sur téléphone ; collez alors le texte de l'annonce, ou utilisez le serveur ci-dessous.
+
+**Publication** : chaque push sur `main` republie le site (`.github/workflows/pages.yml`). À activer une seule fois : *Settings → Pages → Source : GitHub Actions*.
+
+## Sur ordinateur (serveur, optionnel)
+
+Le serveur ajoute l'actualisation en tâche de fond et la lecture des flux RSS / pages sans restriction.
 
 ```bash
 npm start            # http://localhost:3000  (Node ≥ 20, aucune dépendance)
@@ -33,27 +48,31 @@ Au premier lancement, un **marché de démonstration** (agglomération nantaise,
 
 ## Sources : ce qui est fait et ce qui ne l'est pas
 
-Les grands portails interdisent l'aspiration automatique de leurs pages dans leurs CGU et la bloquent techniquement. agregimmo ne les « scrape » donc pas : il agrège ce que vous pouvez légitimement récupérer (flux RSS, exports, alertes, capture manuelle de la page que vous consultez, API partenaires). Pour ajouter une source, créez un module dans `server/sources/` exposant `fetch({ settings })` qui renvoie des annonces au format :
+Les grands portails interdisent l'aspiration automatique de leurs pages dans leurs CGU et la bloquent techniquement. agregimmo ne les « scrape » donc pas : il agrège ce que vous pouvez légitimement récupérer (flux RSS, exports, alertes, capture manuelle de la page que vous consultez, API partenaires). Pour ajouter une source, créez un module dans `public/core/` exposant `fetch({ settings })` qui renvoie des annonces au format :
 
 ```js
 { id, source, sourceLabel, url, title, description, type, price, surface, landSurface,
   rooms, bedrooms, dpe, city, postcode, lat, lng, photos, publishedAt }
 ```
 
-puis déclarez-le dans `SOURCES` (`server/index.js`).
+puis déclarez-le dans `SOURCES` (`public/core/engine.js`).
 
 ## Architecture
 
 ```
-server/
-  index.js      API HTTP + fichiers statiques, actualisation périodique
-  store.js      persistance JSON (data/db.json)
-  dedup.js      recoupement des annonces en biens
-  score.js      score d'opportunité et signaux
-  parse.js      extraction de champs depuis texte / HTML
-  geo.js        distances, géocodage (api-adresse.data.gouv.fr)
-  sources/      demo.js, rss.js
-public/         interface (HTML/CSS/JS sans framework, Leaflet embarqué)
+public/
+  core/         moteur commun au serveur et au téléphone
+    engine.js   routes API, actualisation, ajout, import
+    store.js    données (persistance injectée : fichier ou localStorage)
+    dedup.js    recoupement des annonces en biens
+    score.js    score d'opportunité et signaux
+    parse.js    extraction de champs depuis texte / HTML
+    geo.js      distances, géocodage (api-adresse.data.gouv.fr)
+    demo.js     marché de démonstration
+    feed.js     flux RSS / Atom
+  local.js      mode autonome (moteur dans le navigateur)
+  app.js …      interface (sans framework, Leaflet embarqué), PWA (manifest, sw.js)
+server/index.js serveur HTTP optionnel (fichier data/db.json)
 test/           tests node:test
 ```
 

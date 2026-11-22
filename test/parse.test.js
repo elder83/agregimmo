@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseListingText, parsePrice, parseHtmlMeta } from '../server/parse.js';
-import { parseFeed } from '../server/sources/rss.js';
+import { parseListingText, parsePrice, parseHtmlMeta } from '../public/core/parse.js';
+import { parseFeed } from '../public/core/feed.js';
 
 test('extrait les champs d’un texte d’annonce', () => {
   const p = parseListingText({ text: 'Vente Appartement T3 68 m² Nantes 44000. Dernier étage. Prix : 249 000 €. DPE : D. 2 chambres.' });

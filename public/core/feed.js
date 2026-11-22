@@ -1,9 +1,19 @@
 // Source RSS / Atom : de nombreux portails, agences et outils d'alertes
 // proposent des flux. Chaque item est analysé pour extraire prix, surface…
 
-import { parseListingText, decodeEntities } from '../parse.js';
-import { geocode } from '../geo.js';
-import crypto from 'node:crypto';
+import { parseListingText, decodeEntities } from './parse.js';
+import { geocode } from './geo.js';
+
+// Empreinte courte et stable (FNV-1a), identique côté serveur et navigateur.
+export function hash(str) {
+  let h1 = 0x811c9dc5, h2 = 0x01000193;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 16777619);
+    h2 = Math.imul(h2 ^ c, 2246822519);
+  }
+  return ((h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0')).slice(0, 12);
+}
 
 const tag = (xml, name) => {
   const m = xml.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, 'i'));
@@ -44,7 +54,7 @@ export const rssSource = {
       if (!feed?.url || feed.enabled === false) continue;
       try {
         const res = await fetch(feed.url, {
-          headers: { 'User-Agent': 'agregimmo/0.1 (+lecteur de flux personnel)', Accept: 'application/rss+xml, application/atom+xml, text/xml' },
+          headers: { Accept: 'application/rss+xml, application/atom+xml, text/xml' },
           signal: AbortSignal.timeout(12000),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -57,11 +67,11 @@ export const rssSource = {
             const g = await geocode(p.city || p.postcode, { postcode: p.postcode });
             if (g) { lat = g.lat; lng = g.lng; p.city = p.city || g.city; p.postcode = p.postcode || g.postcode; }
           }
-          const hash = crypto.createHash('sha1').update(it.guid || it.link || it.title).digest('hex').slice(0, 12);
+          const h = hash(it.guid || it.link || it.title);
           const date = it.date && !isNaN(new Date(it.date)) ? new Date(it.date).toISOString() : undefined;
           out.push({
             ...p,
-            id: `rss-${host}:${hash}`,
+            id: `rss-${host}:${h}`,
             source: `rss-${host}`,
             sourceLabel: feed.label || host,
             url: it.link,

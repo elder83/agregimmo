@@ -258,3 +258,13 @@ dialog[open] { animation: pop .16s ease-out; }
 .fav-inline.on { color: var(--warn); }
 .fav-inline.on .i { fill: currentColor; }
 .mbody > .hint + .form { margin-top: 12px; }
+
+/* Application installée : respect de l'encoche et de la barre d'accueil */
+.top { padding-top: max(12px, env(safe-area-inset-top)); padding-left: max(24px, env(safe-area-inset-left)); padding-right: max(24px, env(safe-area-inset-right)); }
+.layout { padding-bottom: max(48px, env(safe-area-inset-bottom)); }
+.toasts { bottom: max(20px, env(safe-area-inset-bottom)); }
+@media (max-width: 640px) {
+  .top { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+  .mfoot { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+  .filters { padding-top: max(6px, env(safe-area-inset-top)); }
+}

@@ -1,12 +1,7 @@
-// Persistance locale dans data/db.json (aucune base de données à installer).
+// Stockage des annonces, favoris, alertes et réglages.
+// La persistance est injectée : fichier JSON côté serveur, localStorage côté téléphone.
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { DEFAULT_RARITY } from './score.js';
-
-const DIR = process.env.AGREGIMMO_DATA || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data');
-const FILE = path.join(DIR, 'db.json');
 
 export const DEFAULT_SETTINGS = {
   zone: { label: 'Nantes (44000)', city: 'Nantes', lat: 47.2184, lng: -1.5536, radiusKm: 15 },
@@ -36,14 +31,15 @@ function deepMerge(base, over) {
   return out;
 }
 
-class Store {
-  constructor() {
+export class Store {
+  constructor(persist = { load: () => null, save: () => {} }) {
+    this.persist = persist;
     this.db = empty();
     this.timer = null;
     try {
-      const raw = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-      this.db = { ...empty(), ...raw, settings: deepMerge(structuredClone(DEFAULT_SETTINGS), raw.settings || {}) };
-    } catch { /* premier lancement */ }
+      const raw = persist.load();
+      if (raw) this.db = { ...empty(), ...raw, settings: deepMerge(structuredClone(DEFAULT_SETTINGS), raw.settings || {}) };
+    } catch { /* premier lancement ou données illisibles */ }
   }
 
   save() {
@@ -53,10 +49,7 @@ class Store {
 
   flush() {
     clearTimeout(this.timer);
-    fs.mkdirSync(DIR, { recursive: true });
-    const tmp = `${FILE}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.db));
-    fs.renameSync(tmp, FILE);
+    this.persist.save(this.db);
   }
 
   get settings() { return this.db.settings; }
@@ -124,4 +117,3 @@ class Store {
   }
 }
 
-export const store = new Store();

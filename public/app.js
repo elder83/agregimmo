@@ -21,8 +21,26 @@ const LS = {
   get(k, d) { try { const v = localStorage.getItem(`agregimmo:${k}`); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(`agregimmo:${k}`, JSON.stringify(v)); } catch { /* stockage indisponible */ } },
 };
+// Deux modes : serveur Node (si présent) ou moteur embarqué dans le navigateur.
+let backend = null;
+async function getBackend() {
+  if (backend) return backend;
+  try {
+    const r = await fetch('api/state', { cache: 'no-store' });
+    if (r.ok && (r.headers.get('content-type') || '').includes('json')) return (backend = { mode: 'server' });
+  } catch { /* pas de serveur */ }
+  const { createLocalEngine } = await import('./local.js');
+  return (backend = { mode: 'local', engine: createLocalEngine() });
+}
 async function api(path, { method = 'GET', body } = {}) {
-  const res = await fetch(`/api${path}`, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+  const b = await getBackend();
+  if (b.mode === 'local') {
+    const u = new URL(path, 'http://x');
+    const r = await b.engine.handle(method, `/api${u.pathname}`, body ? structuredClone(body) : {}, u.searchParams);
+    if (!r.found) throw new Error('Route inconnue');
+    return structuredClone(r.data);
+  }
+  const res = await fetch(`api${path}`, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.error || `Erreur ${res.status}`);
   return json;
@@ -619,7 +637,7 @@ function openSettings(tab = settingsTab) {
   settingsTab = tab;
   const s = structuredClone(state.settings);
   const tabs = [['zone', 'Zone'], ['sources', 'Sources'], ['score', 'Score'], ['data', 'Données']];
-  const bookmarklet = `javascript:(()=>{const d={u:location.href,t:document.title,x:(document.body.innerText||'').slice(0,5000),i:(document.querySelector('meta[property="og:image"]')||{}).content||''};window.open('${location.origin}/#capture='+encodeURIComponent(JSON.stringify(d)),'agregimmo','width=620,height=760')})()`;
+  const bookmarklet = `javascript:(()=>{const d={u:location.href,t:document.title,x:(document.body.innerText||'').slice(0,5000),i:(document.querySelector('meta[property="og:image"]')||{}).content||''};window.open('${location.href.split('#')[0]}#capture='+encodeURIComponent(JSON.stringify(d)),'agregimmo','width=620,height=760')})()`;
   const pane = {
     zone: `<div class="form">
       <label class="full"><span>Centre de la zone de recherche</span><input class="field" id="s-place" value="${esc(s.zone.label || s.zone.city)}" autocomplete="off"><div class="places" id="s-places" hidden></div></label>
@@ -632,6 +650,7 @@ function openSettings(tab = settingsTab) {
       <p class="hint">À désactiver une fois vos vraies sources branchées.</p>
       <h4 style="margin:20px 0 8px">Flux RSS / Atom</h4>
       <p class="hint" style="margin-top:0">Ajoutez les flux d’alertes de vos portails, agences ou notaires. Prix, surface, pièces et ville sont extraits du texte.</p>
+      ${backend?.mode === 'local' ? '<p class="hint">Mode téléphone : un flux n’est lisible que si son site l’autorise (CORS). Sinon, utilisez le serveur (npm start) ou ajoutez les annonces par lien / texte.</p>' : ''}
       <div id="s-feeds" style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${(s.sources.rss.feeds || []).map(feedRow).join('')}</div>
       <button class="btn" style="margin-top:8px" id="s-addfeed">${icon('plus')}Ajouter un flux</button>
       <h4 style="margin:24px 0 8px">Capture depuis n’importe quel site</h4>
@@ -781,13 +800,13 @@ function applyState(s) {
   notify();
 }
 
-async function doRefresh() {
+async function doRefresh(silent = false) {
   const b = $('#btn-refresh');
   b.classList.add('spin');
   try {
     const r = await api('/refresh', { method: 'POST' });
     applyState(r);
-    toast(r.counts.new || r.counts.price ? `${r.counts.new} nouvelle(s) annonce(s), ${r.counts.price} changement(s) de prix` : 'Tout est à jour');
+    if (!silent || r.counts.new || r.counts.price) toast(r.counts.new || r.counts.price ? `${r.counts.new} nouvelle(s) annonce(s), ${r.counts.price} changement(s) de prix` : 'Tout est à jour');
   } catch (e) { toast(e.message); }
   b.classList.remove('spin');
 }
@@ -877,7 +896,7 @@ function bind() {
 function checkCapture() {
   const m = location.hash.match(/^#capture=(.+)$/);
   if (!m) return;
-  history.replaceState(null, '', '/');
+  history.replaceState(null, '', location.pathname + location.search);
   try {
     const d = JSON.parse(decodeURIComponent(m[1]));
     openAdd({ url: d.u, title: d.t, text: d.x, image: d.i });
@@ -889,19 +908,29 @@ async function init() {
   bind();
   try {
     applyState(await api('/state'));
-    if (!state.meta.lastRefresh) await doRefresh();
+    if (!state.meta.lastRefresh) await doRefresh(true);
   } catch (e) {
-    $('#results').innerHTML = `<div class="empty">Serveur injoignable : ${esc(e.message)}</div>`;
+    $('#results').innerHTML = `<div class="empty">Chargement impossible : ${esc(e.message)}</div>`;
   }
   checkCapture();
   window.addEventListener('hashchange', checkCapture);
-  // Le serveur actualise les sources en tâche de fond : on récupère l'état quand il a changé.
-  setInterval(async () => {
-    try {
-      const s = await api('/state');
-      if (s.meta.lastRefresh !== state.meta.lastRefresh || s.clusters.length !== state.clusters.length) applyState(s);
-    } catch { /* hors ligne */ }
-  }, 60e3);
+  if (backend.mode === 'server') {
+    // Le serveur actualise les sources en tâche de fond : on récupère l'état quand il a changé.
+    setInterval(async () => {
+      try {
+        const s = await api('/state');
+        if (s.meta.lastRefresh !== state.meta.lastRefresh || s.clusters.length !== state.clusters.length) applyState(s);
+      } catch { /* hors ligne */ }
+    }, 60e3);
+  } else {
+    // Mode autonome : on actualise quand l'application est ouverte ou revient au premier plan.
+    const stale = () => Date.now() - new Date(state.meta.lastRefresh || 0).getTime() > (state.settings.refreshMinutes || 30) * 60e3;
+    const tick = () => { if (document.visibilityState === 'visible' && stale()) doRefresh(true); };
+    document.addEventListener('visibilitychange', tick);
+    setInterval(tick, 60e3);
+    tick();
+  }
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 init();

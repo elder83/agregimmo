@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeStats, scoreCluster } from '../server/score.js';
-import { DEFAULT_SETTINGS } from '../server/store.js';
+import { computeStats, scoreCluster } from '../public/core/score.js';
+import { DEFAULT_SETTINGS } from '../public/core/store.js';
 
 const mk = (i, over = {}) => ({
   id: `x${i}`, type: 'appartement', city: 'Nantes', price: 4000 * 60, surface: 60, active: true, sources: ['a'],

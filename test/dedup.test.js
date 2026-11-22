@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clusterListings, matchScore } from '../server/dedup.js';
-import { generateDemo } from '../server/sources/demo.js';
+import { clusterListings, matchScore } from '../public/core/dedup.js';
+import { generateDemo } from '../public/core/demo.js';
 
 const base = {
   type: 'appartement', city: 'Nantes', postcode: '44000', rooms: 3, surface: 68, price: 249000, dpe: 'D',

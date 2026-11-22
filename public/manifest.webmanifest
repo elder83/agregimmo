@@ -1,0 +1,17 @@
+{
+  "name": "agregimmo — biens rares et opportunités",
+  "short_name": "agregimmo",
+  "description": "Agrégateur d'annonces immobilières : recoupement multi-portails, score d'opportunité, favoris et alertes.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f7f5",
+  "theme_color": "#1f6f5c",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
