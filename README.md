@@ -17,6 +17,10 @@ Limite : un site ne se laisse lire depuis le navigateur que s'il l'autorise (COR
 
 **Publication** : chaque push sur `main` republie le site (`.github/workflows/pages.yml`). À activer une seule fois : *Settings → Pages → Source : GitHub Actions*.
 
+### Version fichier unique
+
+`npm run build` produit `dist/agregimmo.html` : toute l'application dans un seul fichier HTML, hébergeable n'importe où (c'est cette version qui est publiée comme page web privée). Dans ce mode, la capture par bookmarklet n'existe pas et la sauvegarde se fait par copier-coller.
+
 ## Sur ordinateur (serveur, optionnel)
 
 Le serveur ajoute l'actualisation en tâche de fond et la lecture des flux RSS / pages sans restriction.

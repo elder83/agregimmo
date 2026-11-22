@@ -23,13 +23,14 @@ const LS = {
 };
 // Deux modes : serveur Node (si présent) ou moteur embarqué dans le navigateur.
 let backend = null;
+const STANDALONE = !!globalThis.AGREGIMMO_STANDALONE; // version fichier unique (aucun serveur possible)
 async function getBackend() {
   if (backend) return backend;
-  try {
+  if (!STANDALONE) try {
     const r = await fetch('api/state', { cache: 'no-store' });
     if (r.ok && (r.headers.get('content-type') || '').includes('json')) return (backend = { mode: 'server' });
   } catch { /* pas de serveur */ }
-  const { createLocalEngine } = await import('./local.js');
+  const { createLocalEngine } = await import('./local.js'); // remplacé au build fichier unique
   return (backend = { mode: 'local', engine: createLocalEngine() });
 }
 async function api(path, { method = 'GET', body } = {}) {
@@ -51,6 +52,16 @@ function toast(msg) {
   t.textContent = msg;
   $('#toasts').append(t);
   setTimeout(() => t.remove(), 3200);
+}
+// Confirmation en deux temps (les fenêtres confirm() ne sont pas disponibles partout).
+function armed(btn, label, fn) {
+  btn.addEventListener('click', async () => {
+    if (btn.dataset.armed) { btn.removeAttribute('data-armed'); await fn(); return; }
+    const orig = btn.innerHTML;
+    btn.dataset.armed = '1';
+    btn.innerHTML = `${icon('check')}${label}`;
+    setTimeout(() => { if (btn.isConnected && btn.dataset.armed) { btn.removeAttribute('data-armed'); btn.innerHTML = orig; } }, 4000);
+  });
 }
 const debounce = (fn, ms = 250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
@@ -448,8 +459,7 @@ function openDetail(id) {
   const note = $('#fav-note');
   if (note) note.addEventListener('input', debounce(() => saveFav(c, { note: note.value }, false), 500));
   $$('[data-status]', $('#modal-body')).forEach((b) => b.addEventListener('click', () => saveFav(c, { status: b.dataset.status }).then(() => openDetail(c.id))));
-  $$('[data-del]', $('#modal-body')).forEach((b) => b.addEventListener('click', async () => {
-    if (!confirm('Supprimer cette annonce ajoutée manuellement ?')) return;
+  $$('[data-del]', $('#modal-body')).forEach((b) => armed(b, 'Confirmer la suppression', async () => {
     applyState(await api(`/listings/${encodeURIComponent(b.dataset.del)}`, { method: 'DELETE' }));
     closeModal();
   }));
@@ -653,9 +663,9 @@ function openSettings(tab = settingsTab) {
       ${backend?.mode === 'local' ? '<p class="hint">Mode téléphone : un flux n’est lisible que si son site l’autorise (CORS). Sinon, utilisez le serveur (npm start) ou ajoutez les annonces par lien / texte.</p>' : ''}
       <div id="s-feeds" style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${(s.sources.rss.feeds || []).map(feedRow).join('')}</div>
       <button class="btn" style="margin-top:8px" id="s-addfeed">${icon('plus')}Ajouter un flux</button>
-      <h4 style="margin:24px 0 8px">Capture depuis n’importe quel site</h4>
+      ${STANDALONE ? '' : `<h4 style="margin:24px 0 8px">Capture depuis n’importe quel site</h4>
       <p class="hint" style="margin-top:0">Glissez ce bouton dans votre barre de favoris. Sur une annonce, cliquez-le : elle est envoyée à agregimmo, analysée et recoupée.</p>
-      <p><a class="bookmarklet" href="${esc(bookmarklet)}" onclick="event.preventDefault()">${icon('bookmark')}+ agregimmo</a></p>
+      <p><a class="bookmarklet" href="${esc(bookmarklet)}" onclick="event.preventDefault()">${icon('bookmark')}+ agregimmo</a></p>`}
       <h4 style="margin:24px 0 8px">Journal</h4>
       <div class="logs">${(state.meta.logs || []).map((l) => `<div>${new Date(l.at).toLocaleTimeString('fr-FR')} — ${esc(l.msg)}</div>`).join('') || 'Rien pour le moment.'}</div>`,
     score: `
@@ -676,6 +686,8 @@ function openSettings(tab = settingsTab) {
         <button class="btn" id="s-export">${icon('download')}Exporter favoris et réglages</button>
         <label class="btn">${icon('upload')}Importer CSV / JSON<input type="file" id="s-import" accept=".csv,.json,text/csv,application/json" hidden></label>
       </div>
+      <div id="s-export-box" hidden style="margin-top:10px"><textarea class="field" id="s-export-text" readonly style="min-height:120px;font-size:12px"></textarea>
+        <p class="hint">Conservez ce texte (notes, e-mail…). Pour restaurer : enregistrez-le dans un fichier .json et utilisez « Importer ».</p></div>
       <p class="hint">CSV avec en-têtes : titre, prix, surface, pieces, chambres, ville, code postal, lien, description, dpe, date. Séparateur « ; » ou « , ».</p>
       <h4 style="margin:24px 0 8px">Zone de danger</h4>
       <button class="btn danger" id="s-reset">${icon('trash')}Effacer les annonces et favoris</button>
@@ -715,11 +727,18 @@ function openSettings(tab = settingsTab) {
   }
   if (tab === 'data') {
     $('#s-export').addEventListener('click', async () => {
-      const data = await api('/export');
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-      a.download = `agregimmo-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
+      const json = JSON.stringify(await api('/export'), null, 2);
+      if (!STANDALONE) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+        a.download = `agregimmo-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+      }
+      // Copie de secours : utile quand le téléchargement est bloqué (app intégrée, téléphone).
+      $('#s-export-box').hidden = false;
+      $('#s-export-text').value = json;
+      try { await navigator.clipboard.writeText(json); toast('Sauvegarde copiée dans le presse-papiers'); }
+      catch { $('#s-export-text').select(); toast('Sélectionnez le texte pour le copier'); }
     });
     $('#s-import').addEventListener('change', async (e) => {
       const file = e.target.files[0];
@@ -731,8 +750,7 @@ function openSettings(tab = settingsTab) {
         toast(`${r.added} annonce(s) importée(s)`);
       } catch (err) { toast(`Import impossible : ${err.message}`); }
     });
-    $('#s-reset').addEventListener('click', async () => {
-      if (!confirm('Effacer toutes les annonces, favoris et alertes ? Les réglages sont conservés.')) return;
+    armed($('#s-reset'), 'Confirmer : tout effacer', async () => {
       applyState(await api('/reset', { method: 'POST' }));
       toast('Données effacées');
       closeModal();
@@ -930,7 +948,7 @@ async function init() {
     setInterval(tick, 60e3);
     tick();
   }
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (!STANDALONE && 'serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 init();

@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build": "node scripts/build-standalone.mjs"
   },
   "engines": { "node": ">=20" }
 }
