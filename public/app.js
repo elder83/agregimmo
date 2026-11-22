@@ -1029,7 +1029,18 @@ async function init() {
     setInterval(tick, 60e3);
     tick();
   }
-  if (!STANDALONE && 'serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (!STANDALONE && 'serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+      // Une nouvelle version a été publiée : on recharge une fois pour l'afficher.
+      reg.addEventListener('updatefound', () => {
+        const w = reg.installing;
+        w?.addEventListener('statechange', () => {
+          if (w.state === 'activated' && navigator.serviceWorker.controller) toast('Nouvelle version installée');
+        });
+      });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    }).catch(() => {});
+  }
 }
 
 init();
