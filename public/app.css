@@ -268,3 +268,17 @@ dialog[open] { animation: pop .16s ease-out; }
   .mfoot { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
   .filters { padding-top: max(6px, env(safe-area-inset-top)); }
 }
+
+/* portails */
+.portals { display: flex; flex-direction: column; }
+.portal { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.portal:last-child { border-bottom: 0; }
+.pinfo { min-width: 0; }
+.pinfo b { display: block; }
+.pinfo small { color: var(--muted); }
+.pedit { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+.steps { margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px; }
+@media (max-width: 640px) { .chip-btn { padding: 0 10px; } }
+@media (max-width: 640px) {
+  #sort { order: 5; flex: 1 1 100%; }
+}

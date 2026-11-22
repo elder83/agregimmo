@@ -658,6 +658,9 @@ function openSettings(tab = settingsTab) {
     sources: `
       <label class="toggle"><span>${icon('layers')}Données de démonstration (marché nantais simulé)</span><input type="checkbox" class="switch" id="s-demo" ${s.sources.demo.enabled ? 'checked' : ''}></label>
       <p class="hint">À désactiver une fois vos vraies sources branchées.</p>
+      <label class="toggle" style="margin-top:14px"><span>${icon('bell')}Annonces reçues par alertes e-mail</span><input type="checkbox" class="switch" id="s-remote" ${s.sources.remote?.enabled !== false ? 'checked' : ''}></label>
+      <p class="hint">Fichier mis à jour chaque matin à partir des alertes des portails reçues dans votre Gmail.</p>
+      <input class="field" id="s-remote-url" placeholder="Adresse du fichier (par défaut : branche « annonces » du dépôt)" value="${esc(s.sources.remote?.url || '')}">
       <h4 style="margin:20px 0 8px">Flux RSS / Atom</h4>
       <p class="hint" style="margin-top:0">Ajoutez les flux d’alertes de vos portails, agences ou notaires. Prix, surface, pièces et ville sont extraits du texte.</p>
       ${backend?.mode === 'local' ? '<p class="hint">Mode téléphone : un flux n’est lisible que si son site l’autorise (CORS). Sinon, utilisez le serveur (npm start) ou ajoutez les annonces par lien / texte.</p>' : ''}
@@ -710,7 +713,7 @@ function openSettings(tab = settingsTab) {
       box.innerHTML = places.map((p, i) => `<button type="button" data-pi="${i}">${esc(p.label)}</button>`).join('');
       $$('button', box).forEach((b) => b.addEventListener('click', () => {
         const p = places[+b.dataset.pi];
-        Object.assign(zone, { label: p.label, city: p.city, lat: p.lat, lng: p.lng });
+        Object.assign(zone, { label: p.label, city: p.city, postcode: p.postcode, lat: p.lat, lng: p.lng });
         $('#s-place').value = p.label;
         box.hidden = true;
       }));
@@ -767,6 +770,7 @@ function openSettings(tab = settingsTab) {
     if (tab === 'sources') {
       patch.sources = {
         demo: { enabled: $('#s-demo').checked },
+        remote: { enabled: $('#s-remote').checked, url: $('#s-remote-url').value.trim() },
         rss: { enabled: true, feeds: $$('.feed', body).map((r) => ({ label: $('[data-fl]', r).value.trim(), url: $('[data-fu]', r).value.trim() })).filter((f) => f.url) },
       };
     }
@@ -788,6 +792,82 @@ function openSettings(tab = settingsTab) {
 }
 const feedRow = (f) => `<div class="feed" style="display:grid;grid-template-columns:140px 1fr 34px;gap:6px"><input class="field" data-fl placeholder="Nom" value="${esc(f.label)}"><input class="field" data-fu placeholder="https://…/rss" value="${esc(f.url)}"><button class="ib" data-rm title="Retirer">${icon('x')}</button></div>`;
 const kwRow = (k) => `<input class="field" data-kt value="${esc(k.term)}" placeholder="ex. vue mer"><input class="field num" inputmode="numeric" value="${esc(k.weight)}"><button class="ib" data-rm title="Retirer">${icon('x')}</button>`;
+
+// ---------- portails ----------
+// Liens de recherche préparés avec la zone et les filtres. Les portails changent
+// parfois le format de leurs adresses : chaque lien peut être remplacé par
+// celui d'une recherche enregistrée sur le portail (« Mon lien »).
+const slug = (s) => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const zonePostcode = (z) => z.postcode || (String(z.label || '').match(/\((\d{5})\)/) || [])[1] || '';
+const PORTALS = [
+  {
+    id: 'leboncoin', label: 'Leboncoin', note: 'Particuliers et agences',
+    url: (z, f) => {
+      const t = { maison: 1, appartement: 2, terrain: 3, parking: 4, local: 5, immeuble: 5 };
+      const p = new URLSearchParams({ category: '9', locations: `${z.city}_${zonePostcode(z)}` });
+      const types = [...new Set(f.types.map((x) => t[x]).filter(Boolean))].join(',');
+      if (types) p.set('real_estate_type', types);
+      if (f.priceMin || f.priceMax) p.set('price', `${f.priceMin || 'min'}-${f.priceMax || 'max'}`);
+      if (f.surfMin || f.surfMax) p.set('square', `${f.surfMin || 'min'}-${f.surfMax || 'max'}`);
+      if (f.roomsMin) p.set('rooms', `${f.roomsMin}-max`);
+      return `https://www.leboncoin.fr/recherche?${p}`;
+    },
+  },
+  {
+    id: 'bienici', label: 'Bien’ici', note: 'Agences, carte détaillée',
+    url: (z, f) => {
+      const p = new URLSearchParams();
+      if (f.priceMin) p.set('prix-min', f.priceMin);
+      if (f.priceMax) p.set('prix-max', f.priceMax);
+      if (f.surfMin) p.set('surface-min', f.surfMin);
+      if (f.surfMax) p.set('surface-max', f.surfMax);
+      const q = p.toString();
+      return `https://www.bienici.com/recherche/achat/${slug(z.city)}-${zonePostcode(z)}${q ? `?${q}` : ''}`;
+    },
+  },
+  { id: 'seloger', label: 'SeLoger', note: 'Agences', url: () => 'https://www.seloger.com/' },
+  { id: 'pap', label: 'PAP', note: 'Uniquement entre particuliers', url: () => 'https://www.pap.fr/' },
+  { id: 'logicimmo', label: 'Logic-Immo', note: 'Agences', url: () => 'https://www.logic-immo.com/' },
+  { id: 'notaires', label: 'Immobilier des notaires', note: 'Successions, ventes notariales', url: () => 'https://www.immobilier.notaires.fr/' },
+  { id: 'licitor', label: 'Licitor', note: 'Ventes aux enchères judiciaires', url: () => 'https://www.licitor.com/' },
+];
+
+function openPortals() {
+  const z = state.settings.zone;
+  const mine = state.settings.portals || {};
+  openModal(`${mhead('Chercher sur les portails')}
+  <div class="mbody">
+    <p class="hint" style="margin-top:0">Recherches préparées pour <b>${esc(z.city || z.label)}</b> avec vos filtres actuels (${esc(describeFilters(state.filters, state.q))}). Une annonce vous plaît : copiez son texte, puis bouton <b>+</b> d’agregimmo.</p>
+    <div class="portals">${PORTALS.map((p) => {
+      const own = mine[p.id];
+      return `<div class="portal" data-p="${p.id}">
+        <div class="pinfo"><b>${esc(p.label)}</b><small>${own ? 'Votre recherche enregistrée' : esc(p.note)}</small></div>
+        <a class="btn primary" href="${esc(own || p.url(z, state.filters))}" target="_blank" rel="noopener noreferrer">${icon('external')}Ouvrir</a>
+        <button class="ib" data-edit="${p.id}" title="Utiliser mon propre lien">${icon('link')}</button>
+        <div class="pedit" hidden><input class="field" placeholder="Collez l’adresse de votre recherche sur ${esc(p.label)}" value="${esc(own || '')}">
+          <button class="btn" data-savep="${p.id}">${icon('check')}OK</button></div>
+      </div>`;
+    }).join('')}</div>
+    <div class="panel" style="margin:16px 0 0"><h3>Recevoir les nouveautés automatiquement</h3>
+      <ol class="steps">
+        <li>Sur chaque portail, lancez votre recherche puis choisissez <b>« Créer une alerte »</b> ou <b>« Sauvegarder la recherche »</b>, avec envoi <b>par e-mail</b> à votre adresse Gmail.</li>
+        <li>Chaque matin, les annonces reçues sont lues et ajoutées ici automatiquement, recoupées et notées.</li>
+      </ol>
+    </div>
+  </div>`, { wide: false });
+  $('.mwrap').addEventListener('click', async (e) => {
+    const ed = e.target.closest('[data-edit]');
+    if (ed) { const box = $(`[data-p="${ed.dataset.edit}"] .pedit`); box.hidden = !box.hidden; if (!box.hidden) $('input', box).focus(); return; }
+    const sv = e.target.closest('[data-savep]');
+    if (sv) {
+      const v = $(`[data-p="${sv.dataset.savep}"] .pedit input`).value.trim();
+      if (v && !/^https?:\/\//.test(v)) { toast('Collez une adresse commençant par https://'); return; }
+      applyState(await api('/settings', { method: 'PUT', body: { portals: { [sv.dataset.savep]: v } } }));
+      toast(v ? 'Lien enregistré' : 'Lien par défaut rétabli');
+      openPortals();
+    }
+  });
+}
 
 // ---------- données ----------
 let lastNotified = LS.get('notified', {});
@@ -824,7 +904,7 @@ async function doRefresh(silent = false) {
   try {
     const r = await api('/refresh', { method: 'POST' });
     applyState(r);
-    if (!silent || r.counts.new || r.counts.price) toast(r.counts.new || r.counts.price ? `${r.counts.new} nouvelle(s) annonce(s), ${r.counts.price} changement(s) de prix` : 'Tout est à jour');
+    if (silent !== 'first' && (!silent || r.counts.new || r.counts.price)) toast(r.counts.new || r.counts.price ? `${r.counts.new} nouvelle(s) annonce(s), ${r.counts.price} changement(s) de prix` : 'Tout est à jour');
   } catch (e) { toast(e.message); }
   b.classList.remove('spin');
 }
@@ -900,6 +980,7 @@ function bind() {
   $('#btn-refresh').addEventListener('click', doRefresh);
   $('#btn-add').addEventListener('click', () => openAdd());
   $('#btn-alerts').addEventListener('click', openAlerts);
+  $('#btn-portals').addEventListener('click', openPortals);
   $('#btn-settings').addEventListener('click', () => openSettings());
   $('#btn-theme').addEventListener('click', () => {
     const cur = LS.get('theme', 'auto');
@@ -926,7 +1007,7 @@ async function init() {
   bind();
   try {
     applyState(await api('/state'));
-    if (!state.meta.lastRefresh) await doRefresh(true);
+    if (!state.meta.lastRefresh) await doRefresh('first');
   } catch (e) {
     $('#results').innerHTML = `<div class="empty">Chargement impossible : ${esc(e.message)}</div>`;
   }

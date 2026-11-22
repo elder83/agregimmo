@@ -8,10 +8,12 @@ import { haversineKm, geocode, searchPlaces } from './geo.js';
 import { parseListingText, parseHtmlMeta } from './parse.js';
 import { demoSource } from './demo.js';
 import { rssSource, hash } from './feed.js';
+import { remoteSource } from './remote.js';
 
 export function createEngine({ store, fetchPage = null }) {
   const SOURCES = [
     { ...demoSource, enabled: (s) => s.sources?.demo?.enabled !== false, authoritative: true },
+    { ...remoteSource, enabled: (s) => s.sources?.remote?.enabled !== false, authoritative: false },
     { ...rssSource, enabled: (s) => s.sources?.rss?.enabled !== false && (s.sources?.rss?.feeds || []).length > 0, authoritative: false },
   ];
   let cache = null;
