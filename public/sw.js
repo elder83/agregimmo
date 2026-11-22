@@ -1,10 +1,10 @@
 // Service worker : l'application s'ouvre même sans réseau.
 // Stratégie « réseau d'abord » pour toujours servir la dernière version publiée,
 // avec repli sur le cache hors connexion.
-const CACHE = 'agregimmo-v1';
+const CACHE = 'agregimmo-v2';
 const SHELL = [
   './', 'index.html', 'app.css', 'app.js', 'icons.js', 'local.js', 'manifest.webmanifest',
-  'core/engine.js', 'core/store.js', 'core/dedup.js', 'core/score.js', 'core/parse.js', 'core/geo.js', 'core/demo.js', 'core/feed.js',
+  'core/engine.js', 'core/store.js', 'core/dedup.js', 'core/score.js', 'core/parse.js', 'core/geo.js', 'core/demo.js', 'core/feed.js', 'core/remote.js',
   'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css', 'icons/icon-192.png',
 ];
 

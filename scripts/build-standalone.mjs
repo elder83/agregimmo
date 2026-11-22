@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUB = path.join(ROOT, 'public');
 const ORDER = [
-  'core/geo.js', 'core/parse.js', 'core/score.js', 'core/dedup.js', 'core/demo.js', 'core/feed.js',
+  'core/geo.js', 'core/parse.js', 'core/score.js', 'core/dedup.js', 'core/demo.js', 'core/feed.js', 'core/remote.js',
   'core/store.js', 'core/engine.js', 'local.js', 'icons.js', 'app.js',
 ];
 const key = (p) => path.basename(p, '.js');

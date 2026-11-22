@@ -4,9 +4,10 @@
 import { DEFAULT_RARITY } from './score.js';
 
 export const DEFAULT_SETTINGS = {
-  zone: { label: 'Nantes (44000)', city: 'Nantes', lat: 47.2184, lng: -1.5536, radiusKm: 15 },
+  zone: { label: 'Nantes (44000)', city: 'Nantes', postcode: '44000', lat: 47.2184, lng: -1.5536, radiusKm: 15 },
   sources: {
     demo: { enabled: true },
+    remote: { enabled: true, url: '' },
     rss: { enabled: true, feeds: [] },
   },
   refreshMinutes: 30,
@@ -16,6 +17,7 @@ export const DEFAULT_SETTINGS = {
   weights: { discount: 1, rarity: 1, drop: 1, yield: 1, market: 1 },
   dedup: { priceTol: 0.08, surfaceTol: 0.04, threshold: 0.72 },
   notifications: false,
+  portals: {},
 };
 
 function empty() {

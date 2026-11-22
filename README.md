@@ -50,6 +50,11 @@ Au premier lancement, un **marché de démonstration** (agglomération nantaise,
 | **Import / export** | CSV (titre, prix, surface, pieces, ville, code postal, lien…) ou JSON ; export des favoris et réglages. |
 | **Interface** | Épurée, icônes au trait, thème clair/sombre, grille / liste / carte, fenêtres modales, responsive mobile. Raccourci `/` pour rechercher. |
 
+## Vraies annonces : alertes e-mail et portails
+
+- **Bouton « Portails »** : ouvre Leboncoin, Bien'ici, SeLoger, PAP, Logic-Immo, notaires et enchères (Licitor), avec la recherche préremplie selon la zone et les filtres quand le portail le permet. Chaque lien peut être remplacé par l'adresse d'une recherche enregistrée sur le portail.
+- **Alertes e-mail** : créez sur chaque portail une alerte envoyée à votre adresse Gmail. Chaque matin (6 h 32, heure de Paris), une tâche programmée lit ces e-mails et ajoute les annonces au fichier `annonces.json` de la branche `annonces`. L'application lit ce fichier à chaque actualisation (Paramètres → Sources → « Annonces reçues par alertes e-mail »). Ce fichier est public, comme le dépôt.
+
 ## Sources : ce qui est fait et ce qui ne l'est pas
 
 Les grands portails interdisent l'aspiration automatique de leurs pages dans leurs CGU et la bloquent techniquement. agregimmo ne les « scrape » donc pas : il agrège ce que vous pouvez légitimement récupérer (flux RSS, exports, alertes, capture manuelle de la page que vous consultez, API partenaires). Pour ajouter une source, créez un module dans `public/core/` exposant `fetch({ settings })` qui renvoie des annonces au format :
